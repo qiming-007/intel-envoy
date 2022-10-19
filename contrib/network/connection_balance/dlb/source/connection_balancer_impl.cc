@@ -19,6 +19,16 @@ namespace Dlb {
 Envoy::Network::ConnectionBalancerSharedPtr
 DlbConnectionBalanceFactory::createConnectionBalancerFromProto(
     const Protobuf::Message&, Server::Configuration::FactoryContext& context) {
+  const uint& config_id = 0;
+  const auto& result = detectDlbDevice(config_id, "/dev");
+  if (!result.has_value()) {
+    ExceptionUtil::throwEnvoyException("no available dlb hardware");
+  }
+
+  const uint& device_id = result.value();
+  if (device_id != config_id) {
+    ENVOY_LOG(warn, "dlb device {} is not found, use dlb device {} instead", config_id, device_id);
+  }
 #ifdef DLB_DISABLED
   context.localInfo();
   throw EnvoyException("X86_64 architecture is required for Dlb.");
@@ -211,6 +221,8 @@ void DlbBalancedConnectionHandlerImpl::setDlbEvent() {
       Event::FileReadyType::Read);
   dlb_event_->setEnabled(Event::FileReadyType::Read);
 }
+
+REGISTER_FACTORY(DlbConnectionBalanceFactory, Envoy::Network::ConnectionBalanceFactory);
 
 void DlbBalancedConnectionHandlerImpl::post(Network::ConnectionSocketPtr&& socket) {
 #ifdef DLB_DISABLED
